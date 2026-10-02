@@ -1,6 +1,10 @@
 import { UserButton } from "@clerk/nextjs";
+import { getOrCreateUser } from "@/src/server/user";
 
-export default function DocumentsPage() {
+export default async function DocumentsPage() {
+
+    const user = await getOrCreateUser();
+
     return (
         <main className="mx-auto max-w-4xl p-8">
             <div className="flex items-center justify-between">
@@ -8,7 +12,7 @@ export default function DocumentsPage() {
                 <UserButton/>
             </div>
             <p className="mt-4 text-slate-500">
-                This is the documents page here you can see all your documents
+                Welcome, { user?.name ?? user?.email }. Here you can find all your documents
             </p>
         </main>
     )
