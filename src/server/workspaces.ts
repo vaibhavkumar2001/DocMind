@@ -22,3 +22,11 @@ export function createWorkspace(userId: string, name: string) {
     });
 }
 
+export function getWorkspaceForUser(userId: string, workspaceId: string) {
+    return prisma.workspace.findFirst({
+        where: { id: workspaceId, members: { some: {userId } } },
+        include: { members: { where: { userId }, select: { role:true } } },
+    });
+}
+//Dhyan do: query mein id ke saath members: { some: { userId } } bhi hai. Matlab sirf ID jaanna kaafi nahi, tumhara naam register mein hona bhi zaroori hai. Yahi multi-tenancy ki security hai.
+

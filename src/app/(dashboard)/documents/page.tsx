@@ -2,6 +2,7 @@ import { UserButton } from "@clerk/nextjs";
 import { getOrCreateUser } from "@/server/user";
 import { getUserWorkspaces } from "@/server/workspaces";
 import { createWorkspaceAction } from "./actions";
+import Link from "next/link";
 
 export default async function DocumentsPage() {
   const user = await getOrCreateUser();
@@ -43,7 +44,9 @@ export default async function DocumentsPage() {
             key={w.id}
             className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-800"
           >
-            <span className="font-medium">{w.name}</span>
+            <Link href={`/documents/${w.id}`} className="font-medium hover:text-indigo-600 hover:underline">
+                {w.name}
+            </Link>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
               {w.members[0]?.role}
             </span>
