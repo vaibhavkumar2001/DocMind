@@ -3,23 +3,24 @@ import { notFound } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { getOrCreateUser } from "@/server/user";
 import { getWorkspaceForUser } from "@/server/workspaces";
+import UploadBox from "@/components/dashboard/UploadBox";
 
 export default async function WorkspacePage({
-    params,
+  params,
 }: {
-    params: Promise <{ workspaceId: string }>
+  params: Promise<{ workspaceId: string }>;
 }) {
-    const { workspaceId } = await params;
-    
-    const user = await getOrCreateUser();
-    if(!user) notFound();
+  const { workspaceId } = await params;
 
-    //Maine workspace ke liye uske user aur workspace ki id find krli h 
-    const workspace = await getWorkspaceForUser(user.id, workspaceId);
-    if(!workspace) notFound();
+  const user = await getOrCreateUser();
+  if (!user) notFound();
 
-    return (
-        <main className="mx-auto max-w-4xl p-8">
+  // Workspace tabhi milegi jab ye user uska member ho
+  const workspace = await getWorkspaceForUser(user.id, workspaceId);
+  if (!workspace) notFound();
+
+  return (
+    <main className="mx-auto max-w-4xl p-8">
       <div className="flex items-center justify-between">
         <Link href="/documents" className="text-sm text-indigo-600 hover:underline">
           &larr; All workspaces
@@ -34,9 +35,9 @@ export default async function WorkspacePage({
         </span>
       </div>
 
-      <p className="mt-6 text-slate-500">
-        The documents for this workspace will be displayed here.
-      </p>
+      <div className="mt-8">
+        <UploadBox />
+      </div>
     </main>
-    )
+  );
 }
