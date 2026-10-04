@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
+import { extractPages } from "@/server/ingestion/extractText";
 
 export const MAX_MB = 8;
 export const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
@@ -30,15 +31,23 @@ function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
 }
 
+async function markFailed(documentId: string, message: string) {
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { status: "FAILED", errorMessage: message },
+  });
+}
+
 export async function saveUploadedDocument(args: {
   workspaceId: string;
   userId: string;
   file: File;
 }) {
   const { workspaceId, userId, file } = args;
+  const ext = extOf(file.name);
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  if (!matchesType(extOf(file.name), bytes)) {
+  if (!matchesType(ext, bytes)) {
     throw new UploadError("File ka content uske type se match nahi karta");
   }
 
@@ -46,8 +55,9 @@ export async function saveUploadedDocument(args: {
   const path = `${workspaceId}/${randomUUID()}-${safeName(file.name)}`;
   await uploadToStorage(path, bytes, file.type);
 
+  let doc;
   try {
-    return await prisma.document.create({
+    doc = await prisma.document.create({
       data: {
         filename: file.name,
         sizeBytes: bytes.length,
@@ -60,6 +70,24 @@ export async function saveUploadedDocument(args: {
     await deleteFromStorage(path); // register mein entry nahi hui toh godown se bhi hata do
     throw e;
   }
+
+  // Text nikalna (abhi PDF aur TXT; DOCX Day 9 mein)
+  if (ext === ".pdf" || ext === ".txt") {
+    try {
+      const pages = await extractPages(bytes, ext);
+      const chars = pages.reduce((n, p) => n + p.text.length, 0);
+      console.log(`[ingestion] ${file.name}: ${pages.length} pages, ${chars} chars`);
+
+      if (chars === 0) {
+        await markFailed(doc.id, "Is file mein text nahi mila (scanned PDF ho sakti hai)");
+      }
+    } catch (e) {
+      console.error("[ingestion] extract failed", e);
+      await markFailed(doc.id, "File padhne mein dikkat aayi");
+    }
+  }
+
+  return doc;
 }
 
 export function getWorkspaceDocuments(workspaceId: string) {

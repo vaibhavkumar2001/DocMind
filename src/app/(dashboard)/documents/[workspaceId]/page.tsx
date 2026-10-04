@@ -52,10 +52,13 @@ export default async function WorkspacePage({
             key={d.id}
             className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm dark:border-slate-800"
           >
-            <span className="truncate font-medium">
-              {d.filename}{" "}
-              <span className="font-normal text-slate-500">({formatSize(d.sizeBytes)})</span>
-            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium">
+                {d.filename}{" "}
+                <span className="font-normal text-slate-500">({formatSize(d.sizeBytes)})</span>
+              </p>
+              {d.errorMessage && <p className="mt-0.5 text-xs text-red-600">{d.errorMessage}</p>}
+            </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
               {d.status}
             </span>
