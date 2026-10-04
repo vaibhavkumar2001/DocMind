@@ -19,6 +19,7 @@ model User {
   name        String?
   createdAt   DateTime          @default(now())
   memberships WorkspaceMember[]
+  documents  Document[]
 }
 
 model Workspace {
@@ -26,6 +27,7 @@ model Workspace {
   name      String
   createdAt DateTime          @default(now())
   members   WorkspaceMember[]
+  documents Document[]
 }
 
 model WorkspaceMember {
@@ -37,4 +39,27 @@ model WorkspaceMember {
   workspaceId String
 
   @@unique([userId, workspaceId])
+}
+
+enum DocumentStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  filename     String
+  sizeBytes    Int
+  storagePath  String
+  status       DocumentStatus @default(PROCESSING)
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId  String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+
+  @@index([workspaceId])
 }

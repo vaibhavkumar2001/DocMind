@@ -1,46 +1,70 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { formatSize } from "@/lib/utils";
 
-const MAX_MB = 10;
+const MAX_MB = 8;
 const ALLOWED = [".pdf", ".docx", ".txt"];
 
-function formatSize(bytes: number) {
-  return bytes < 1024 * 1024
-    ? `${(bytes / 1024).toFixed(0)} KB`
-    : `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-}
+type Item = {
+  id: string;
+  file: File;
+  status: "queued" | "uploading" | "done" | "error";
+  message?: string;
+};
 
-export default function UploadBox() {
+export default function UploadBox({ workspaceId }: { workspaceId: string }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  function update(id: string, patch: Partial<Item>) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  }
 
   function addFiles(list: FileList | File[]) {
-    const ok: File[] = [];
+    const ok: Item[] = [];
     const bad: string[] = [];
-
     for (const f of Array.from(list)) {
       const ext = "." + (f.name.split(".").pop() ?? "").toLowerCase();
-      if (!ALLOWED.includes(ext)) {
-        bad.push(`${f.name}: sirf PDF, DOCX ya TXT allowed hai`);
-      } else if (f.size > MAX_MB * 1024 * 1024) {
-        bad.push(`${f.name}: ${MAX_MB} MB se bada hai`);
-      } else {
-        ok.push(f);
-      }
+      if (!ALLOWED.includes(ext)) bad.push(`${f.name}: sirf PDF, DOCX ya TXT allowed hai`);
+      else if (f.size > MAX_MB * 1024 * 1024) bad.push(`${f.name}: ${MAX_MB} MB se bada hai`);
+      else ok.push({ id: crypto.randomUUID(), file: f, status: "queued" });
     }
-
-    setFiles((prev) => [...prev, ...ok]);
+    setItems((prev) => [...prev, ...ok]);
     setErrors(bad);
   }
 
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    addFiles(e.dataTransfer.files);
+  async function uploadAll() {
+    setBusy(true);
+    const todo = items.filter((i) => i.status === "queued" || i.status === "error");
+    for (const item of todo) {
+      update(item.id, { status: "uploading", message: undefined });
+      try {
+        const fd = new FormData();
+        fd.append("workspaceId", workspaceId);
+        fd.append("file", item.file);
+        const res = await fetch("/api/documents/upload", { method: "POST", body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? "Upload fail hua");
+        update(item.id, { status: "done" });
+      } catch (e) {
+        update(item.id, {
+          status: "error",
+          message: e instanceof Error ? e.message : "Upload fail hua",
+        });
+      }
+    }
+    setBusy(false);
+    setItems((prev) => prev.filter((i) => i.status !== "done")); // ho gaye wale list se hata do
+    router.refresh(); // server se nayi documents list mangwao
   }
+
+  const pending = items.filter((i) => i.status !== "done").length;
 
   return (
     <div>
@@ -51,14 +75,18 @@ export default function UploadBox() {
           setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          addFiles(e.dataTransfer.files);
+        }}
         className={`cursor-pointer rounded-2xl border-2 border-dashed p-12 text-center transition ${
           dragging
             ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950"
             : "border-slate-300 dark:border-slate-700"
         }`}
       >
-        <p className="font-medium">Drop files here, or click to select them.</p>
+        <p className="font-medium">Files yahan drop karo, ya click karke chuno</p>
         <p className="mt-1 text-sm text-slate-500">
           PDF, DOCX ya TXT, max {MAX_MB} MB per file
         </p>
@@ -70,7 +98,7 @@ export default function UploadBox() {
           className="hidden"
           onChange={(e) => {
             if (e.target.files) addFiles(e.target.files);
-            e.target.value = ""; // same file dobara chun sakein
+            e.target.value = "";
           }}
         />
       </div>
@@ -83,32 +111,42 @@ export default function UploadBox() {
         </ul>
       )}
 
-      {files.length > 0 && (
+      {items.length > 0 && (
         <ul className="mt-4 space-y-2">
-          {files.map((f, i) => (
+          {items.map((i) => (
             <li
-              key={`${f.name}-${i}`}
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-slate-800"
+              key={i.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-slate-800"
             >
               <span className="truncate">
-                {f.name} <span className="text-slate-500">({formatSize(f.size)})</span>
+                {i.file.name}{" "}
+                <span className="text-slate-500">({formatSize(i.file.size)})</span>
+                {i.message && <span className="ml-2 text-red-600">{i.message}</span>}
               </span>
-              <button
-                onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-slate-500 hover:text-red-600"
-              >
-                Remove
-              </button>
+              <span className="shrink-0 text-slate-500">
+                {i.status === "uploading" ? (
+                  "Uploading..."
+                ) : (
+                  <button
+                    disabled={busy}
+                    onClick={() => setItems((prev) => prev.filter((x) => x.id !== i.id))}
+                    className="hover:text-red-600"
+                  >
+                    Remove
+                  </button>
+                )}
+              </span>
             </li>
           ))}
         </ul>
       )}
 
       <button
-        disabled
-        className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white opacity-50"
+        onClick={uploadAll}
+        disabled={busy || pending === 0}
+        className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
       >
-        Upload (Day 7 mein chalega)
+        {busy ? "Uploading..." : `Upload${pending ? ` (${pending})` : ""}`}
       </button>
     </div>
   );

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { getOrCreateUser } from "@/server/user";
 import { getWorkspaceForUser } from "@/server/workspaces";
+import { getWorkspaceDocuments } from "@/server/documents";
+import { formatSize } from "@/lib/utils";
 import UploadBox from "@/components/dashboard/UploadBox";
 
 export default async function WorkspacePage({
@@ -15,9 +17,10 @@ export default async function WorkspacePage({
   const user = await getOrCreateUser();
   if (!user) notFound();
 
-  // Workspace tabhi milegi jab ye user uska member ho
   const workspace = await getWorkspaceForUser(user.id, workspaceId);
   if (!workspace) notFound();
+
+  const documents = await getWorkspaceDocuments(workspace.id);
 
   return (
     <main className="mx-auto max-w-4xl p-8">
@@ -36,8 +39,29 @@ export default async function WorkspacePage({
       </div>
 
       <div className="mt-8">
-        <UploadBox />
+        <UploadBox workspaceId={workspace.id} />
       </div>
+
+      <h2 className="mt-10 text-lg font-semibold">Documents</h2>
+      <ul className="mt-3 space-y-2">
+        {documents.length === 0 && (
+          <li className="text-sm text-slate-500">Abhi koi document nahi hai.</li>
+        )}
+        {documents.map((d) => (
+          <li
+            key={d.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm dark:border-slate-800"
+          >
+            <span className="truncate font-medium">
+              {d.filename}{" "}
+              <span className="font-normal text-slate-500">({formatSize(d.sizeBytes)})</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+              {d.status}
+            </span>
+          </li>
+        ))} 
+      </ul>
     </main>
   );
 }
