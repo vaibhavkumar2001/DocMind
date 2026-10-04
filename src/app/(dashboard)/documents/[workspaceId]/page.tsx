@@ -6,6 +6,14 @@ import { getWorkspaceForUser } from "@/server/workspaces";
 import { getWorkspaceDocuments } from "@/server/documents";
 import { formatSize } from "@/lib/utils";
 import UploadBox from "@/components/dashboard/UploadBox";
+import DeleteButton from "@/components/dashboard/DeleteButton";
+import { deleteDocumentAction } from "./action"
+
+const statusStyle: Record<string, string> = {
+  PROCESSING: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  READY: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
+  FAILED: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+};
 
 export default async function WorkspacePage({
   params,
@@ -20,6 +28,8 @@ export default async function WorkspacePage({
   const workspace = await getWorkspaceForUser(user.id, workspaceId);
   if (!workspace) notFound();
 
+  const role = workspace.members[0]?.role;
+  const isAdmin = role === "ADMIN";
   const documents = await getWorkspaceDocuments(workspace.id);
 
   return (
@@ -34,7 +44,7 @@ export default async function WorkspacePage({
       <div className="mt-4 flex items-center gap-3">
         <h1 className="text-2xl font-bold">{workspace.name}</h1>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
-          {workspace.members[0]?.role}
+          {role}
         </span>
       </div>
 
@@ -42,10 +52,10 @@ export default async function WorkspacePage({
         <UploadBox workspaceId={workspace.id} />
       </div>
 
-      <h2 className="mt-10 text-lg font-semibold">Documents</h2>
+      <h2 className="mt-10 text-lg font-semibold">Documents ({documents.length})</h2>
       <ul className="mt-3 space-y-2">
         {documents.length === 0 && (
-          <li className="text-sm text-slate-500">Abhi koi document nahi hai.</li>
+          <li className="text-sm text-slate-500">There are no documents yet.</li>
         )}
         {documents.map((d) => (
           <li
@@ -59,11 +69,24 @@ export default async function WorkspacePage({
               </p>
               {d.errorMessage && <p className="mt-0.5 text-xs text-red-600">{d.errorMessage}</p>}
             </div>
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
-              {d.status}
-            </span>
+
+            <div className="flex shrink-0 items-center gap-3">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle[d.status] ?? ""}`}
+              >
+                {d.status}
+              </span>
+              {isAdmin && (
+                <DeleteButton
+                  action={deleteDocumentAction}
+                  documentId={d.id}
+                  workspaceId={workspace.id}
+                  filename={d.filename}
+                />
+              )}
+            </div>
           </li>
-        ))} 
+        ))}
       </ul>
     </main>
   );

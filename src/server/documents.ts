@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
 import { extractPages } from "@/server/ingestion/extractText";
+import { chunkPages } from "@/server/ingestion/chunkText";
 
 export const MAX_MB = 8;
 export const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
@@ -48,7 +49,7 @@ export async function saveUploadedDocument(args: {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   if (!matchesType(ext, bytes)) {
-    throw new UploadError("File ka content uske type se match nahi karta");
+    throw new UploadError("The file content does not match its file type.");
   }
 
   // Path mein workspaceId: har team ki files alag folder mein
@@ -76,14 +77,15 @@ export async function saveUploadedDocument(args: {
     try {
       const pages = await extractPages(bytes, ext);
       const chars = pages.reduce((n, p) => n + p.text.length, 0);
-      console.log(`[ingestion] ${file.name}: ${pages.length} pages, ${chars} chars`);
+      const chunks = chunkPages(pages)
+      console.log(`[ingestion] ${file.name}: ${chunks.length} chunks`);
 
       if (chars === 0) {
-        await markFailed(doc.id, "Is file mein text nahi mila (scanned PDF ho sakti hai)");
+        await markFailed(doc.id, "No text was found in this file (It may be a scanned PDF)");
       }
     } catch (e) {
       console.error("[ingestion] extract failed", e);
-      await markFailed(doc.id, "File padhne mein dikkat aayi");
+      await markFailed(doc.id, "There was an issue reading the file. Please try again.");
     }
   }
 
@@ -95,4 +97,24 @@ export function getWorkspaceDocuments(workspaceId: string) {
     where: { workspaceId },
     orderBy: { createdAt: "desc" },
   });
+}
+
+//Sirf Admin hi delete kr skta h
+export async function deleteDocument(userId: string, documentId: string) {
+  const doc = await prisma.document.findFirst({
+    where: { id: documentId, workspace: { members: { some: {
+      userId, role: "ADMIN"
+    }}}}
+  })
+
+  if(!doc) return false;
+
+  await prisma.document.delete({ where: { id: doc.id}});
+
+  try {
+    await deleteFromStorage(doc.storagePath)
+  } catch (e) {
+    console.log("[storage] delete Failed", doc.storagePath, e);
+  }
+  return true;
 }

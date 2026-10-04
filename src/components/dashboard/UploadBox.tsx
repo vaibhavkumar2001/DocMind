@@ -86,7 +86,7 @@ export default function UploadBox({ workspaceId }: { workspaceId: string }) {
             : "border-slate-300 dark:border-slate-700"
         }`}
       >
-        <p className="font-medium">Files yahan drop karo, ya click karke chuno</p>
+        <p className="font-medium">Drop files here, or click to select them</p>
         <p className="mt-1 text-sm text-slate-500">
           PDF, DOCX ya TXT, max {MAX_MB} MB per file
         </p>
