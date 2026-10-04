@@ -1,4 +1,5 @@
 import { extractText,getDocumentProxy } from "unpdf";
+import mammoth from "mammoth";
 
 export type PageText = { pageNumber: number; text: string };
 
@@ -9,6 +10,12 @@ export async function extractPages(bytes: Buffer, ext: string): Promise<PageText
         const pdf = await getDocumentProxy(new Uint8Array( bytes));
         const { text } = await extractText(pdf, {mergePages: false });
         return text.map((t, i) => ({ pageNumber: i + 1, text: t }));
+    }
+
+    if(ext === ".docx") {
+        // Docx mein pages nhi hote toh poora test result mein store kr lenge
+        const result = await mammoth.extractRawText({ buffer: bytes });
+        return [{ pageNumber: 1, text: result.value.trim() }];
     }
 
     if(ext === ".txt") {

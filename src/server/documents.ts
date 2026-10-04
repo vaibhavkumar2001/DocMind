@@ -72,7 +72,7 @@ export async function saveUploadedDocument(args: {
   }
 
   // Text nikalna (abhi PDF aur TXT; DOCX Day 9 mein)
-  if (ext === ".pdf" || ext === ".txt") {
+  if (ALLOWED_EXT.includes(ext)) {
     try {
       const pages = await extractPages(bytes, ext);
       const chars = pages.reduce((n, p) => n + p.text.length, 0);
