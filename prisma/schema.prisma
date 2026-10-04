@@ -28,6 +28,7 @@ model Workspace {
   createdAt DateTime          @default(now())
   members   WorkspaceMember[]
   documents Document[]
+  chunks    Chunk[]
 }
 
 model WorkspaceMember {
@@ -55,11 +56,28 @@ model Document {
   status       DocumentStatus @default(PROCESSING)
   errorMessage String?
   createdAt    DateTime       @default(now())
+  chunks       Chunk[]
 
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId  String
   uploadedBy   User      @relation(fields: [uploadedById], references: [id])
   uploadedById String
 
+  @@index([workspaceId])
+}
+
+model Chunk {
+  id         String   @id @default(cuid())
+  content    String
+  pageNumber Int
+  chunkIndex Int
+  createdAt  DateTime @default(now())
+
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId  String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@index([documentId])
   @@index([workspaceId])
 }

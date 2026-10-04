@@ -1,3 +1,5 @@
+//documents.ts DocMind ka "document ka kaam sambhalne wala kitchen" hai. Upload, jaanch, godown mein rakhna, text nikalna, chunks banana, aur delete karna, sab ka asli logic isi file mein hai.
+
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
@@ -77,8 +79,23 @@ export async function saveUploadedDocument(args: {
     try {
       const pages = await extractPages(bytes, ext);
       const chars = pages.reduce((n, p) => n + p.text.length, 0);
-      const chunks = chunkPages(pages)
-      console.log(`[ingestion] ${file.name}: ${chunks.length} chunks`);
+
+      const chunks = chunkPages(pages);
+
+      if (chunks.length > 0) {
+        await prisma.chunk.createMany({
+          //createMany saare chunks ek hi baar mein database ko bhejta hai, ek-ek karke nahi, isliye tez hai.
+          data: chunks.map((c) => ({
+            content: c.content,
+            pageNumber: c.pageNumber,
+            chunkIndex: c.chunkIndex,
+            documentId: doc.id,
+            workspaceId,
+          })),
+        });
+      }
+      console.log(`[ingestion] ${file.name}: ${chunks.length} chunks saved`);
+      
 
       if (chars === 0) {
         await markFailed(doc.id, "No text was found in this file (It may be a scanned PDF)");
