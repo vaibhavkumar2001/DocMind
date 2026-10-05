@@ -1,10 +1,9 @@
-//documents.ts DocMind ka "document ka kaam sambhalne wala kitchen" hai. Upload, jaanch, godown mein rakhna, text nikalna, chunks banana, aur delete karna, sab ka asli logic isi file mein hai.
-
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
 import { extractPages } from "@/server/ingestion/extractText";
 import { chunkPages } from "@/server/ingestion/chunkText";
+import { embedDocuments, saveEmbeddings } from "@/server/retrieval/embeddings";
 
 export const MAX_MB = 8;
 export const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
@@ -51,7 +50,7 @@ export async function saveUploadedDocument(args: {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   if (!matchesType(ext, bytes)) {
-    throw new UploadError("The file content does not match its file type.");
+    throw new UploadError("File ka content uske type se match nahi karta");
   }
 
   // Path mein workspaceId: har team ki files alag folder mein
@@ -74,36 +73,43 @@ export async function saveUploadedDocument(args: {
     throw e;
   }
 
-  // Text nikalna (abhi PDF aur TXT; DOCX Day 9 mein)
-  if (ALLOWED_EXT.includes(ext)) {
-    try {
-      const pages = await extractPages(bytes, ext);
-      const chars = pages.reduce((n, p) => n + p.text.length, 0);
+  // Text -> chunks -> embeddings
+  try {
+    const pages = await extractPages(bytes, ext);
+    const chars = pages.reduce((n, p) => n + p.text.length, 0);
+    console.log(`[ingestion] ${file.name}: ${pages.length} pages, ${chars} chars`);
 
-      const chunks = chunkPages(pages);
-
-      if (chunks.length > 0) {
-        await prisma.chunk.createMany({
-          //createMany saare chunks ek hi baar mein database ko bhejta hai, ek-ek karke nahi, isliye tez hai.
-          data: chunks.map((c) => ({
-            content: c.content,
-            pageNumber: c.pageNumber,
-            chunkIndex: c.chunkIndex,
-            documentId: doc.id,
-            workspaceId,
-          })),
-        });
-      }
-      console.log(`[ingestion] ${file.name}: ${chunks.length} chunks saved`);
-      
-
-      if (chars === 0) {
-        await markFailed(doc.id, "No text was found in this file (It may be a scanned PDF)");
-      }
-    } catch (e) {
-      console.error("[ingestion] extract failed", e);
-      await markFailed(doc.id, "There was an issue reading the file. Please try again.");
+    if (chars === 0) {
+      await markFailed(doc.id, "No text was found in this file. It may be a scanned PDF.)");
+      return doc;
     }
+
+    // Chunk ki id hum khud banate hain, taaki embedding baad mein sahi row mein likh sakein
+    const chunks = chunkPages(pages).map((c) => ({ ...c, id: randomUUID() }));
+    await prisma.chunk.createMany({
+      data: chunks.map((c) => ({
+        id: c.id,
+        content: c.content,
+        pageNumber: c.pageNumber,
+        chunkIndex: c.chunkIndex,
+        documentId: doc.id,
+        workspaceId,
+      })),
+    });
+    console.log(`[ingestion] ${file.name}: ${chunks.length} chunks saved`);
+
+    const vectors = await embedDocuments(chunks.map((c) => c.content));
+    await saveEmbeddings(
+      chunks.map((c) => c.id),
+      vectors,
+    );
+
+    await prisma.document.update({ where: { id: doc.id }, data: { status: "READY" } });
+    console.log(`[ingestion] ${file.name}: ${vectors.length} embeddings saved, READY`);
+  } catch (e) {
+    console.error("[ingestion] failed", e);
+    await prisma.chunk.deleteMany({ where: { documentId: doc.id } }); // adhoore chunks hata do
+    await markFailed(doc.id, "File process karne mein dikkat aayi");
   }
 
   return doc;
@@ -116,22 +122,22 @@ export function getWorkspaceDocuments(workspaceId: string) {
   });
 }
 
-//Sirf Admin hi delete kr skta h
+// Sirf ADMIN delete kar sakta hai: role ki shart query mein hi hai
 export async function deleteDocument(userId: string, documentId: string) {
   const doc = await prisma.document.findFirst({
-    where: { id: documentId, workspace: { members: { some: {
-      userId, role: "ADMIN"
-    }}}}
-  })
+    where: {
+      id: documentId,
+      workspace: { members: { some: { userId, role: "ADMIN" } } },
+    },
+  });
+  if (!doc) return false; // document nahi hai, ya tum ADMIN nahi ho
 
-  if(!doc) return false;
-
-  await prisma.document.delete({ where: { id: doc.id}});
+  await prisma.document.delete({ where: { id: doc.id } });
 
   try {
-    await deleteFromStorage(doc.storagePath)
+    await deleteFromStorage(doc.storagePath);
   } catch (e) {
-    console.log("[storage] delete Failed", doc.storagePath, e);
+    console.error("[storage] delete failed", doc.storagePath, e);
   }
   return true;
 }
