@@ -35,8 +35,8 @@ export default async function WorkspacePage({
   return (
     <main className="mx-auto max-w-4xl p-8">
       <div className="flex items-center justify-between">
-        <Link href="/documents" className="text-sm text-indigo-600 hover:underline">
-          &larr; All workspaces
+        <Link href={`/documents/${workspace.id}/search`} className="mt-6 inline-blocktext-sm text-indigo-600 hover:underline">
+          Search test &rarr; All workspaces
         </Link>
         <UserButton />
       </div>
