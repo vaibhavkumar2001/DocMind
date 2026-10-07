@@ -2,18 +2,26 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrCreateUser } from "@/server/user";
 import { getWorkspaceForUser } from "@/server/workspaces";
-import { searchChunks, type SearchHit } from "@/server/retrieval/search";
+import {
+  searchChunks,
+  DEFAULT_MIN_SCORE,
+  type SearchHit,
+} from "@/server/retrieval/search";
 
 export default async function SearchPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; min?: string }>;
 }) {
   const { workspaceId } = await params;
-  const { q } = await searchParams;
+  const { q, min } = await searchParams;
   const question = (q ?? "").trim().slice(0, 300);
+
+  // min URL se aata hai (testing ke liye). 0 se 1 ke beech rakho.
+  const parsed = min === undefined || min === "" ? DEFAULT_MIN_SCORE : Number(min);
+  const minScore = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 1) : DEFAULT_MIN_SCORE;
 
   const user = await getOrCreateUser();
   if (!user) notFound();
@@ -26,10 +34,10 @@ export default async function SearchPage({
   let error: string | null = null;
   if (question) {
     try {
-      hits = await searchChunks(workspace.id, question);
+      hits = await searchChunks(workspace.id, question, { minScore });
     } catch (e) {
       console.error("[search] failed", e);
-      error = "Search failed. Please try again in a little while.";
+      error = "Search fail hua, thodi der baad try karo.";
     }
   }
 
@@ -43,16 +51,28 @@ export default async function SearchPage({
       </Link>
       <h1 className="mt-4 text-2xl font-bold">Search (test)</h1>
       <p className="mt-1 text-sm text-slate-500">
-        For now, only matching chunks will be shown. The LLM-generated answer will be added in Week 5.
+        Sirf wahi chunks dikhenge jinka score minimum se zyada ho.
       </p>
 
-      <form className="mt-6 flex gap-2">
+      <form className="mt-6 flex flex-wrap gap-2">
         <input
           name="q"
           defaultValue={question}
-          placeholder="Type Your Question..."
-          className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
+          placeholder="Apna sawaal likho..."
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
         />
+        <label className="flex items-center gap-2 text-sm text-slate-500">
+          Min score
+          <input
+            name="min"
+            type="number"
+            step="0.05"
+            min="0"
+            max="1"
+            defaultValue={minScore}
+            className="w-20 rounded-lg border border-slate-300 bg-transparent px-2 py-2 dark:border-slate-700"
+          />
+        </label>
         <button
           type="submit"
           className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"
@@ -64,9 +84,10 @@ export default async function SearchPage({
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
       {question && !error && hits.length === 0 && (
-        <p className="mt-6 text-sm text-slate-500">
-          No chunks found. Have you uploaded any READY documents?
-        </p>
+        <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          Is workspace ke documents mein iska jawab nahi mila (min score {minScore}). Min score ko
+          kam karke dekho, ya READY documents upload karo.
+        </div>
       )}
 
       <ul className="mt-6 space-y-3">
