@@ -19,14 +19,14 @@ export default async function SearchPage({
   const { q, min } = await searchParams;
   const question = (q ?? "").trim().slice(0, 300);
 
-  // min URL se aata hai (testing ke liye). 0 se 1 ke beech rakho.
+  // yeh jo min h woh URL se aa rha h isko mujhe 1 aur 2 ke beech mein hi rakhna h
   const parsed = min === undefined || min === "" ? DEFAULT_MIN_SCORE : Number(min);
   const minScore = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 1) : DEFAULT_MIN_SCORE;
 
   const user = await getOrCreateUser();
   if (!user) notFound();
 
-  // Pehle membership check, phir search
+  // Phele main membership check kraoonga phir search kroonga
   const workspace = await getWorkspaceForUser(user.id, workspaceId);
   if (!workspace) notFound();
 
@@ -51,7 +51,7 @@ export default async function SearchPage({
       </Link>
       <h1 className="mt-4 text-2xl font-bold">Search (test)</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Sirf wahi chunks dikhenge jinka score minimum se zyada ho.
+        Only chunks with a score above the minimum threshold will be shown.
       </p>
 
       <form className="mt-6 flex flex-wrap gap-2">
@@ -85,8 +85,7 @@ export default async function SearchPage({
 
       {question && !error && hits.length === 0 && (
         <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Is workspace ke documents mein iska jawab nahi mila (min score {minScore}). Min score ko
-          kam karke dekho, ya READY documents upload karo.
+          No relevant answer was found in this workspace’s documents (minimum score: {minScore}). Try lowering the minimum score or upload READY documents
         </div>
       )}
 
