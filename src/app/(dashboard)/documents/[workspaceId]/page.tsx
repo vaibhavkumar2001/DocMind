@@ -38,6 +38,13 @@ export default async function WorkspacePage({
         <Link href={`/documents/${workspace.id}/search`} className="mt-6 inline-blocktext-sm text-indigo-600 hover:underline">
           Search test &rarr; All workspaces
         </Link>
+
+        <Link
+            href={`/documents/${workspace.id}/ask`}
+            className="mt-6 ml-4 inline-block text-sm text-indigo-600 hover:underline"
+          >
+            Ask test &rarr;
+          </Link>
         <UserButton />
       </div>
 
