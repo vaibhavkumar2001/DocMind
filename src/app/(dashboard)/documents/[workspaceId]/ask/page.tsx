@@ -1,3 +1,4 @@
+import { isBusyError } from "@/lib/gemini";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrCreateUser } from "@/server/user";
@@ -28,9 +29,15 @@ export default async function AskPage({
     try {
       result = await answerQuestion(workspace.id, question);
     } catch (e) {
-      console.error("[ask] failed", e);
-      error = "Jawab banane mein dikkat aayi, thodi der baad try karo.";
-    }
+    console.error("[ask] failed", e);
+      if (isBusyError(e)) {
+        error = "AI model abhi busy hai (Google ki taraf se). 1 minute baad dobara try karo.";
+      } else if (process.env.NODE_ENV === "development" && e instanceof Error) {
+        error = `DEV error: ${e.message.slice(0, 300)}`;
+      } else {
+        error = "Jawab banane mein dikkat aayi, thodi der baad try karo.";
+      }
+    }  
   }
 
   return (
