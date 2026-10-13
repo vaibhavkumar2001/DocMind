@@ -45,7 +45,13 @@ export default async function WorkspacePage({
           >
             Ask test &rarr;
           </Link>
-        <UserButton />
+          <Link
+              href={`/chat/${workspace.id}`}
+              className="mt-6 ml-4 inline-block text-sm font-semibold text-indigo-600 hover:underline"
+            >
+              Open chat &rarr;
+            </Link>
+          <UserButton />
       </div>
 
       <div className="mt-4 flex items-center gap-3">

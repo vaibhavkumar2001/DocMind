@@ -20,6 +20,7 @@ model User {
   createdAt   DateTime          @default(now())
   memberships WorkspaceMember[]
   documents  Document[]
+  chatMessages ChatMessage[]
 }
 
 model Workspace {
@@ -29,6 +30,7 @@ model Workspace {
   members   WorkspaceMember[]
   documents Document[]
   chunks    Chunk[]
+  chatMessages ChatMessage[]
 }
 
 model WorkspaceMember {
@@ -81,4 +83,20 @@ model Chunk {
 
   @@index([documentId])
   @@index([workspaceId])
+}
+
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  sources   Json?
+  createdAt DateTime @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@index([workspaceId, userId, createdAt])
 }
