@@ -1,7 +1,7 @@
 import { getOrCreateUser } from "@/server/user";
 import { getWorkspaceForUser } from "@/server/workspaces";
 import { streamAnswer, NOT_FOUND } from "@/server/llm/answer";
-import { saveChatMessage, type StoredSource } from "@/server/chat";
+import { getChatHistory, saveChatMessage, type StoredSource } from "@/server/chat";
 import { isBusyError } from "@/lib/gemini";
 
 export const runtime = "nodejs";
@@ -43,7 +43,11 @@ export async function POST(req: Request) {
       };
 
       try {
-        const { sources, tokens } = await streamAnswer(workspace.id, question);
+        // The last 3 exchanges of this user in this workspace (oldest first)
+        const past = await getChatHistory(user.id, workspace.id, 3);
+        const history = past.map((r) => ({ question: r.question, answer: r.answer }));
+
+        const { sources, tokens } = await streamAnswer(workspace.id, question, history);
 
         const storedSources: StoredSource[] = sources.map((s) => ({
           id: s.id,
