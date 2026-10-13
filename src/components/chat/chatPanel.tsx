@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Markdown from "@/components/chat/Markdown";
 
 type Source = {
   id: string;
@@ -10,6 +11,7 @@ type Source = {
   snippet: string;
 };
 
+// 793575
 export type Message = {
   id: string;
   role: "user" | "assistant";
@@ -200,22 +202,25 @@ export default function ChatPanel({
           ) : (
             <div key={m.id} className="flex justify-start">
               <div className="max-w-[85%]">
-                {/* The answer is rendered as plain text (React escapes it), never as HTML */}
+                {/* Answers are rendered as sanitized Markdown (no raw HTML, no images) */}
                 <div
-                  className={`whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm px-4 py-2 ${
+                  className={`break-words rounded-2xl rounded-bl-sm px-4 py-2 ${
                     m.isError
-                      ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+                      ? "whitespace-pre-wrap bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
                       : "bg-slate-100 dark:bg-slate-800"
                   }`}
                 >
-                  {m.text ||
-                    (m.streaming ? (
+                  {!m.text ? (
+                    m.streaming ? (
                       <span className="animate-pulse text-slate-500">Thinking...</span>
                     ) : m.stopped ? (
                       <span className="text-slate-500">Stopped.</span>
-                    ) : (
-                      ""
-                    ))}
+                    ) : null
+                  ) : m.isError ? (
+                    m.text
+                  ) : (
+                    <Markdown text={m.text} />
+                  )}
                   {m.streaming && m.text && <span className="animate-pulse">▍</span>}
                   {m.stopped && m.text && (
                     <span className="mt-1 block text-xs text-slate-500">Stopped</span>
