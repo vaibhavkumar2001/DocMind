@@ -17,6 +17,9 @@ export type Message = {
   sources?: Source[];
   isError?: boolean;
   streaming?: boolean;
+  stopped?: boolean;
+  // set on error bubbles so the Retry button knows what to resend
+  retry?: { question: string; userMessageId: string };
 };
 
 type StreamEvent =
@@ -39,6 +42,7 @@ export default function ChatPanel({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   // true while the user is near the bottom; only then do we auto-scroll
   const stickRef = useRef(true);
 
@@ -65,33 +69,44 @@ export default function ChatPanel({
     if (!loading) inputRef.current?.focus();
   }, [loading]);
 
+  // Cancel any running request if the user leaves the page
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   function patch(id: string, change: (m: Message) => Message) {
     setMessages((prev) => prev.map((m) => (m.id === id ? change(m) : m)));
   }
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    const question = input.trim();
-    if (!question || loading) return;
+  async function ask(question: string) {
+    if (loading) return;
 
+    const userMessageId = crypto.randomUUID();
     const answerId = crypto.randomUUID();
     stickRef.current = true; // a new question always jumps to the bottom
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: "user", text: question },
+      { id: userMessageId, role: "user", text: question },
       { id: answerId, role: "assistant", text: "", streaming: true },
     ]);
-    setInput("");
     setLoading(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const fail = (message: string) =>
-      patch(answerId, (m) => ({ ...m, text: message, isError: true, streaming: false }));
+      patch(answerId, (m) => ({
+        ...m,
+        text: message,
+        isError: true,
+        streaming: false,
+        retry: { question, userMessageId },
+      }));
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId, question }),
+        signal: controller.signal,
       });
 
       // Errors before streaming starts come back as plain JSON
@@ -137,11 +152,33 @@ export default function ChatPanel({
 
       // Safety net: if the stream ended without a "done" event
       patch(answerId, (m) => ({ ...m, streaming: false }));
-    } catch {
-      fail("Connection lost. Please try again.");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // The user pressed Stop: keep whatever text we already have
+        patch(answerId, (m) => ({ ...m, streaming: false, stopped: true }));
+      } else {
+        fail("Connection lost. Please try again.");
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const question = input.trim();
+    if (!question || loading) return;
+    setInput("");
+    void ask(question);
+  }
+
+  function retry(m: Message) {
+    if (!m.retry || loading) return;
+    const { question, userMessageId } = m.retry;
+    // Remove the failed pair, then ask again
+    setMessages((prev) => prev.filter((x) => x.id !== m.id && x.id !== userMessageId));
+    void ask(question);
   }
 
   return (
@@ -172,9 +209,29 @@ export default function ChatPanel({
                   }`}
                 >
                   {m.text ||
-                    (m.streaming ? <span className="animate-pulse text-slate-500">Thinking...</span> : "")}
+                    (m.streaming ? (
+                      <span className="animate-pulse text-slate-500">Thinking...</span>
+                    ) : m.stopped ? (
+                      <span className="text-slate-500">Stopped.</span>
+                    ) : (
+                      ""
+                    ))}
                   {m.streaming && m.text && <span className="animate-pulse">▍</span>}
+                  {m.stopped && m.text && (
+                    <span className="mt-1 block text-xs text-slate-500">Stopped</span>
+                  )}
                 </div>
+
+                {m.isError && m.retry && (
+                  <button
+                    type="button"
+                    onClick={() => retry(m)}
+                    disabled={loading}
+                    className="mt-2 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-900"
+                  >
+                    Retry
+                  </button>
+                )}
 
                 {m.sources && m.sources.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -220,7 +277,7 @@ export default function ChatPanel({
         </button>
       )}
 
-      <form onSubmit={send} className="flex gap-2 border-t border-slate-200 p-3 dark:border-slate-800">
+      <form onSubmit={onSubmit} className="flex gap-2 border-t border-slate-200 p-3 dark:border-slate-800">
         <input
           ref={inputRef}
           value={input}
@@ -230,13 +287,23 @@ export default function ChatPanel({
           placeholder="Type your question..."
           className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 disabled:opacity-60 dark:border-slate-700"
         />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
-          Send
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            onClick={() => abortRef.current?.abort()}
+            className="rounded-lg border border-slate-300 px-4 py-2 font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900"
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+          >
+            Send
+          </button>
+        )}
       </form>
     </div>
   );

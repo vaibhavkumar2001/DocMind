@@ -33,9 +33,14 @@ export async function POST(req: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      // One JSON event per line (NDJSON)
-      const send = (event: unknown) =>
-        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      // One JSON event per line (NDJSON). Ignore errors if the client already left.
+      const send = (event: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        } catch {
+          // stream already closed
+        }
+      };
 
       try {
         const { sources, tokens } = await streamAnswer(workspace.id, question);
@@ -50,20 +55,28 @@ export async function POST(req: Request) {
         send({ type: "sources", sources: storedSources });
 
         let full = "";
+        let aborted = false;
         if (tokens) {
           for await (const piece of tokens) {
-            if (req.signal.aborted) return; // the user left, stop working
+            // The user pressed Stop or left: stop asking the LLM for more text
+            if (req.signal.aborted) {
+              aborted = true;
+              break;
+            }
             full += piece;
             send({ type: "token", text: piece });
           }
         }
+
+        // Stopped before a single word was produced: nothing worth saving
+        if (aborted && !full.trim()) return;
 
         if (!full.trim()) {
           full = NOT_FOUND;
           send({ type: "token", text: full });
         }
 
-        // Saving history must never block or break the answer
+        // Saving history must never block or break the answer (partial answers are kept too)
         try {
           await saveChatMessage({
             userId: user.id,
@@ -76,7 +89,7 @@ export async function POST(req: Request) {
           console.error("[chat] could not save history", e);
         }
 
-        send({ type: "done" });
+        if (!aborted) send({ type: "done" });
       } catch (e) {
         console.error("[chat] failed", e);
         send({
