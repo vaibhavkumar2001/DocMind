@@ -55,3 +55,41 @@ export async function generateText(opts: {
   }
   throw lastError;
 }
+
+export async function* streamText(opts: {
+  system: string;
+  prompt: string;
+  temperature?: number;
+}): AsyncGenerator<string> {
+  const models = [CHAT_MODEL];
+  if (FALLBACK_MODEL && FALLBACK_MODEL !== CHAT_MODEL) models.push(FALLBACK_MODEL);
+
+  let lastError: unknown;
+  for(const model of models) {
+    for(let attempt = 0; attempt < 3; attempt++) {
+      let started = false;
+      try {
+        const stream = await gemini().models.generateContentStream({
+          model,
+          contents: opts.prompt,
+          config: { systemInstruction: opts.system, temperature: opts.temperature ?? 0.2 },
+        });
+        for await (const chunk of stream) {
+          const piece = chunk.text;
+          if(piece) {
+            started = true;
+            yield piece;
+          }
+        }
+        return;
+      } catch (e) {
+        lastError = e;
+        //ek baar agr text sent ho chuka h toh restart nhi hoga
+        if(started || !isBusy(e)) throw e;
+        console.warn(`[llm] ${model} busy (attempt ${attempt + 1}), retrying...`);
+        await sleep(1000 * 2 ** attempt);
+      }
+    }
+  }
+  throw lastError;
+}
