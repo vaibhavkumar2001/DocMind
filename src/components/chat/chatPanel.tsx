@@ -35,12 +35,35 @@ export default function ChatPanel({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [showJump, setShowJump] = useState(false);
 
-  // Keep the latest message in view while the answer grows
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // true while the user is near the bottom; only then do we auto-scroll
+  const stickRef = useRef(true);
+
+  function scrollToBottom() {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight; // instant, no smooth animation (avoids jitter)
+  }
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    stickRef.current = atBottom;
+    setShowJump(!atBottom);
+  }
+
+  // Follow the answer as it grows, but only if the user has not scrolled up
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (stickRef.current) scrollToBottom();
   }, [messages]);
+
+  // Put the cursor back in the input when an answer finishes
+  useEffect(() => {
+    if (!loading) inputRef.current?.focus();
+  }, [loading]);
 
   function patch(id: string, change: (m: Message) => Message) {
     setMessages((prev) => prev.map((m) => (m.id === id ? change(m) : m)));
@@ -52,6 +75,7 @@ export default function ChatPanel({
     if (!question || loading) return;
 
     const answerId = crypto.randomUUID();
+    stickRef.current = true; // a new question always jumps to the bottom
     setMessages((prev) => [
       ...prev,
       { id: crypto.randomUUID(), role: "user", text: question },
@@ -121,8 +145,8 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+    <div className="relative flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
             Ask anything about your documents. Every answer comes with its sources.
@@ -132,7 +156,7 @@ export default function ChatPanel({
         {messages.map((m) =>
           m.role === "user" ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-2 text-white">
+              <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-2 text-white">
                 {m.text}
               </div>
             </div>
@@ -141,7 +165,7 @@ export default function ChatPanel({
               <div className="max-w-[85%]">
                 {/* The answer is rendered as plain text (React escapes it), never as HTML */}
                 <div
-                  className={`whitespace-pre-wrap rounded-2xl rounded-bl-sm px-4 py-2 ${
+                  className={`whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm px-4 py-2 ${
                     m.isError
                       ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
                       : "bg-slate-100 dark:bg-slate-800"
@@ -180,11 +204,25 @@ export default function ChatPanel({
             </div>
           ),
         )}
-        <div ref={bottomRef} />
       </div>
+
+      {showJump && (
+        <button
+          type="button"
+          onClick={() => {
+            stickRef.current = true;
+            setShowJump(false);
+            scrollToBottom();
+          }}
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium shadow dark:border-slate-700 dark:bg-slate-900"
+        >
+          ↓ Latest
+        </button>
+      )}
 
       <form onSubmit={send} className="flex gap-2 border-t border-slate-200 p-3 dark:border-slate-800">
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={500}
