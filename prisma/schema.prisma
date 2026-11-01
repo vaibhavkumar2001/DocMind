@@ -12,24 +12,35 @@ enum Role {
   MEMBER
 }
 
+enum DocumentStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum DocumentSource {
+  FILE
+  VIDEO
+}
+
 model User {
-  id          String            @id @default(cuid())
-  clerkId     String            @unique
-  email       String            @unique
-  name        String?
-  createdAt   DateTime          @default(now())
-  memberships WorkspaceMember[]
-  documents  Document[]
+  id           String            @id @default(cuid())
+  clerkId      String            @unique
+  email        String            @unique
+  name         String?
+  createdAt    DateTime          @default(now())
+  memberships  WorkspaceMember[]
+  documents    Document[]
   chatMessages ChatMessage[]
 }
 
 model Workspace {
-  id        String            @id @default(cuid())
-  name      String
-  createdAt DateTime          @default(now())
-  members   WorkspaceMember[]
-  documents Document[]
-  chunks    Chunk[]
+  id           String            @id @default(cuid())
+  name         String
+  createdAt    DateTime          @default(now())
+  members      WorkspaceMember[]
+  documents    Document[]
+  chunks       Chunk[]
   chatMessages ChatMessage[]
 }
 
@@ -44,37 +55,36 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
 }
 
-enum DocumentStatus {
-  PROCESSING
-  READY
-  FAILED
-}
-
 model Document {
   id           String         @id @default(cuid())
   filename     String
   sizeBytes    Int
-  storagePath  String
+  // null for video documents (there is no stored file)
+  storagePath  String?
   status       DocumentStatus @default(PROCESSING)
   errorMessage String?
   createdAt    DateTime       @default(now())
-  chunks       Chunk[]
+  sourceType   DocumentSource @default(FILE)
+  sourceUrl    String?
 
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId  String
   uploadedBy   User      @relation(fields: [uploadedById], references: [id])
   uploadedById String
+  chunks       Chunk[]
 
   @@index([workspaceId])
 }
 
 model Chunk {
-  id         String   @id @default(cuid())
-  content    String
-  pageNumber Int
-  chunkIndex Int
-  createdAt  DateTime @default(now())
-  embedding  Unsupported("vector(768)")?
+  id           String   @id @default(cuid())
+  content      String
+  pageNumber   Int
+  // for video chunks: where the chunk starts in the video (null for files)
+  startSeconds Int?
+  chunkIndex   Int
+  createdAt    DateTime @default(now())
+  embedding    Unsupported("vector(768)")?
 
   document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   documentId  String
@@ -84,7 +94,6 @@ model Chunk {
   @@index([documentId])
   @@index([workspaceId])
 }
-
 
 model ChatMessage {
   id        String   @id @default(cuid())

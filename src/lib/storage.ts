@@ -25,3 +25,8 @@ export async function deleteFromStorage(path: string) {
     await client().storage.from(BUCKET).remove([path]);
 }
 
+export async function createSignedUrl(path: string, seconds = 60) {
+  const { data, error } = await client().storage.from(BUCKET).createSignedUrl(path, seconds);
+  if (error || !data) throw new Error(`Signed URL failed: ${error?.message}`);
+  return data.signedUrl;
+}

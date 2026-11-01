@@ -123,6 +123,7 @@ export function getWorkspaceDocuments(workspaceId: string) {
 }
 
 // Sirf ADMIN delete kar sakta hai: role ki shart query mein hi hai
+// Only an ADMIN can delete: the role check is part of the query itself
 export async function deleteDocument(userId: string, documentId: string) {
   const doc = await prisma.document.findFirst({
     where: {
@@ -130,14 +131,24 @@ export async function deleteDocument(userId: string, documentId: string) {
       workspace: { members: { some: { userId, role: "ADMIN" } } },
     },
   });
-  if (!doc) return false; // document nahi hai, ya tum ADMIN nahi ho
+  if (!doc) return false; // document does not exist, or the user is not an ADMIN
 
   await prisma.document.delete({ where: { id: doc.id } });
 
-  try {
-    await deleteFromStorage(doc.storagePath);
-  } catch (e) {
-    console.error("[storage] delete failed", doc.storagePath, e);
+  // Video documents have no stored file
+  if (doc.storagePath) {
+    try {
+      await deleteFromStorage(doc.storagePath);
+    } catch (e) {
+      console.error("[storage] delete failed", doc.storagePath, e);
+    }
   }
   return true;
+}
+
+// A document is returned only if the user is a member of its workspace
+export function getDocumentForUser(userId: string, documentId: string) {
+  return prisma.document.findFirst({
+    where: { id: documentId, workspace: { members: { some: { userId } } } },
+  });
 }
