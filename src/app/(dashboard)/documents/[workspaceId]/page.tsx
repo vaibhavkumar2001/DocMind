@@ -8,6 +8,7 @@ import { formatSize } from "@/lib/utils";
 import UploadBox from "@/components/dashboard/UploadBox";
 import DeleteButton from "@/components/dashboard/DeleteButton";
 import { deleteDocumentAction } from "./action"
+import TranscriptForm from "@/components/dashboard/TranscriptForm";
 
 const statusStyle: Record<string, string> = {
   PROCESSING: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
@@ -64,6 +65,8 @@ export default async function WorkspacePage({
       <div className="mt-8">
         <UploadBox workspaceId={workspace.id} />
       </div>
+
+      <TranscriptForm workspaceId={workspace.id} />
 
       <h2 className="mt-10 text-lg font-semibold">Documents ({documents.length})</h2>
       <ul className="mt-3 space-y-2">
