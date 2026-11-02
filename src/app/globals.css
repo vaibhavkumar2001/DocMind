@@ -206,3 +206,8 @@
     background: color-mix(in srgb, var(--primary) 35%, transparent);
   }
 }
+
+.cl-userButtonPopoverFooter {
+  background: transparent !important;
+  background-image: none !important;
+}

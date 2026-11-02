@@ -1,36 +1,41 @@
 import Link from "next/link";
 import { getOrCreateUser } from "@/server/user";
 import { getUserWorkspaces } from "@/server/workspaces";
-
+import SidebarNav from "./SidebarNav";
+import MobileNav from "./MobileNav";
+import ThemeToggle from "@/components/UI/ThemeToggle";
 
 export default async function Sidebar() {
-    const user = await getOrCreateUser()
-    const workspaces = user ? await getUserWorkspaces(user.id) : []
-    return (
-        <aside className="hidden w-60 shrink-0 border-r border-slate-200 p-4 md:block dark:border-slate-800">
-      <Link href="/" className="text-lg font-bold">
-        Doc<span className="text-indigo-600 dark:text-indigo-400">Mind</span>
-      </Link>
+  const user = await getOrCreateUser();
+  const workspaces = user ? await getUserWorkspaces(user.id) : [];
 
-      <nav className="mt-6 space-y-1 text-sm">
-        <Link
-          href="/documents"
-          className="block rounded-lg px-3 py-2 font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          All workspaces
+  // Send only the fields the client components need
+  const items = workspaces.map((w) => ({ id: w.id, name: w.name }));
+
+  return (
+    <>
+      {/* Phones: top bar + slide-in drawer */}
+      <MobileNav workspaces={items} />
+
+      {/* Desktop: fixed sidebar that stays in place while the page scrolls */}
+      <aside className="sticky top-0 z-10 hidden h-screen w-64 shrink-0 flex-col border-r bg-background/60 p-4 backdrop-blur-xl md:flex">
+        <Link href="/" className="flex items-center gap-2.5 px-1">
+          <span className="bg-gradient-neon glow flex h-9 w-9 items-center justify-center rounded-xl text-base font-bold text-white">
+            D
+          </span>
+          <span className="font-display text-lg font-semibold tracking-tight">DocMind</span>
         </Link>
 
-        <p className="px-3 pt-4 text-xs text-slate-500">Your teams</p>
-        {workspaces.map((w) => (
-          <Link
-            key={w.id}
-            href={`/documents/${w.id}`}
-            className="block truncate rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            {w.name}
-          </Link>
-        ))}
-      </nav>
-    </aside>
-    )
+        <div className="mt-8 flex-1 overflow-y-auto">
+          <SidebarNav workspaces={items} />
+        </div>
+
+        {/* Bottom: theme switch */}
+        <div className="flex items-center justify-between border-t pt-4">
+          <span className="px-1 text-xs text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
+      </aside>
+    </>
+  );
 }

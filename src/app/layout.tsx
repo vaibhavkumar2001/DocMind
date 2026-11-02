@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import ThemeToggle from "../components/UI/ThemeToggle"
 import "./globals.css";
 
 const inter = Inter({
@@ -16,13 +15,29 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const description =
+  "Chat with your documents. Upload PDFs, Word files and video transcripts, and get answers with clickable citations.";
+
 export const metadata: Metadata = {
+  // Needed so the share-card image URL becomes an absolute URL
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "DocMind",
+    default: "DocMind | Chat with your documents",
     template: "%s | DocMind",
   },
-  description:
-    "Chat with your documents. Upload PDFs, Word files and video transcripts, and get answers with clickable citations.",
+  description,
+  openGraph: {
+    title: "DocMind | Chat with your documents",
+    description,
+    siteName: "DocMind",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DocMind | Chat with your documents",
+    description,
+  },
 };
 
 // Runs before the first paint: dark is the default, light only if the user saved it
@@ -52,13 +67,7 @@ export default function RootLayout({
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         </head>
-        <body className="min-h-screen antialiased">
-          {children}
-          {/* Temporary floating toggle for testing. We will move it into the sidebar in Step 2 */}
-          <div className="fixed bottom-4 right-4 z-50">
-            <ThemeToggle />
-          </div>
-        </body>
+        <body className="min-h-screen antialiased">{children}</body>
       </html>
     </ClerkProvider>
   );

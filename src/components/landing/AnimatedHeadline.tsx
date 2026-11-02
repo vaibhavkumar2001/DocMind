@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 const LINE_ONE = ["Chat", "with", "your", "documents."];
 const LINE_TWO = ["Trust", "every", "answer."];
@@ -49,28 +49,28 @@ export default function AnimatedHeadline() {
         }
       >
         {LINE_ONE.map((word, i) => (
-          <span key={word} className="inline-block">
+          <Fragment key={word}>
             <span
               className="animate-word-in inline-block"
               style={{ animationDelay: `${i * WORD_STAGGER}s` }}
             >
               {word}
             </span>
-            {/* Plain space between words */}
-            {" "}
-          </span>
+            {/* The space lives OUTSIDE the inline-block, otherwise the browser removes it */}
+            {i < LINE_ONE.length - 1 ? " " : null}
+          </Fragment>
         ))}
         <br />
         {LINE_TWO.map((word, i) => (
-          <span key={word} className="inline-block">
+          <Fragment key={word}>
             <span
               className="animate-word-in text-gradient inline-block"
               style={{ animationDelay: `${(LINE_ONE.length + i) * WORD_STAGGER}s` }}
             >
               {word}
             </span>
-            {" "}
-          </span>
+            {i < LINE_TWO.length - 1 ? " " : null}
+          </Fragment>
         ))}
       </span>
     </h1>

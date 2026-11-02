@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ThemeToggle from "@/components/UI/ThemeToggle";
 
 const BENEFITS = [
   "Answers with clickable page and timestamp citations",
@@ -21,6 +22,9 @@ export default function AuthShell({ title, subtitle, children }: AuthShellProps)
         className="pointer-events-none absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]"
         aria-hidden="true"
       />
+            <div className="absolute right-4 top-4 z-20">
+                <ThemeToggle />
+            </div>
 
       <div className="relative z-10 mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
         {/* Left: brand panel (desktop only) */}

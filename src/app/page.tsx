@@ -2,11 +2,13 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import HeroPreview from "@/components/landing/HeroPreview";
 import AnimatedHeadline from "@/components/landing/AnimatedHeadline";
+import ThemeToggle from "@/components/UI/ThemeToggle"
 
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#preview", label: "Preview" },
+  { href: "#faq", label: "FAQ" },
 ];
 
 const FEATURES = [
@@ -57,6 +59,33 @@ const STEPS = [
   },
 ];
 
+const FAQS = [
+  {
+    q: "Which file types can I upload?",
+    a: "PDF, DOCX and TXT files. For videos, you can paste a transcript in SRT, VTT or plain timestamped text, and answers will link to the matching moment.",
+  },
+  {
+    q: "Is there a file size limit?",
+    a: "Yes. Each file can be up to 8 MB, and files are uploaded one at a time. Large documents should be split into smaller parts.",
+  },
+  {
+    q: "Where do the answers come from?",
+    a: "Only from the documents in your workspace. DocMind finds the most relevant passages, answers from them, and shows the page or timestamp so you can verify it yourself.",
+  },
+  {
+    q: "What if the answer is not in my documents?",
+    a: "DocMind tells you it could not find the answer in your files instead of making something up.",
+  },
+  {
+    q: "Is my data private?",
+    a: "Files are kept in private storage, and every search is limited to the workspace you belong to. Other teams cannot see your documents.",
+  },
+  {
+    q: "Can my team use the same workspace?",
+    a: "Yes. A workspace has two roles: admins can upload and delete documents, and members can ask questions.",
+  },
+];
+
 export default async function HomePage() {
   // Used only to decide which buttons to show; the page itself stays public
   const { userId } = await auth();
@@ -98,10 +127,11 @@ export default async function HomePage() {
 
           {/* Desktop actions */}
           <div className="hidden items-center gap-2 md:flex">
+            <ThemeToggle />
             {isSignedIn ? (
               <Link
                 href="/documents"
-                className="bg-gradient-neon rounded-full px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                className="bg-gradient-neon ml-1 rounded-full px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
               >
                 Open dashboard
               </Link>
@@ -109,7 +139,7 @@ export default async function HomePage() {
               <>
                 <Link
                   href="/sign-in"
-                  className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+                  className="ml-1 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
                 >
                   Sign in
                 </Link>
@@ -123,52 +153,55 @@ export default async function HomePage() {
             )}
           </div>
 
-          {/* Mobile menu: plain <details>, so no client JavaScript is needed */}
-          <details className="group relative md:hidden">
-            <summary
-              className="glass flex h-10 w-10 list-none items-center justify-center rounded-full [&::-webkit-details-marker]:hidden"
-              aria-label="Open menu"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            </summary>
-            <div className="glass absolute right-0 mt-3 w-56 rounded-2xl p-2 shadow-xl">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="block rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                >
-                  {link.label}
-                </a>
-              ))}
-              <div className="my-2 border-t" />
-              {isSignedIn ? (
-                <Link
-                  href="/documents"
-                  className="bg-gradient-neon block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-white"
-                >
-                  Open dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/sign-in"
+          {/* Mobile: theme toggle + menu (plain <details>, so no client JavaScript is needed for the menu) */}
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <details className="group relative">
+              <summary
+                className="glass flex h-10 w-10 list-none items-center justify-center rounded-full [&::-webkit-details-marker]:hidden"
+                aria-label="Open menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </summary>
+              <div className="glass absolute right-0 mt-3 w-56 rounded-2xl p-2 shadow-xl">
+                {NAV_LINKS.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
                     className="block rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   >
-                    Sign in
-                  </Link>
+                    {link.label}
+                  </a>
+                ))}
+                <div className="my-2 border-t" />
+                {isSignedIn ? (
                   <Link
-                    href="/sign-up"
-                    className="bg-gradient-neon mt-1 block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-white"
+                    href="/documents"
+                    className="bg-gradient-neon block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-white"
                   >
-                    Get started
+                    Open dashboard
                   </Link>
-                </>
-              )}
-            </div>
-          </details>
+                ) : (
+                  <>
+                    <Link
+                      href="/sign-in"
+                      className="block rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/sign-up"
+                      className="bg-gradient-neon mt-1 block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-white"
+                    >
+                      Get started
+                    </Link>
+                  </>
+                )}
+              </div>
+            </details>
+          </div>
         </div>
       </header>
 
@@ -262,6 +295,38 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* ---------- FAQ ---------- */}
+        <section id="faq" className="scroll-mt-24 mx-auto max-w-3xl px-6 pb-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-widest text-secondary">FAQ</p>
+            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Questions, answered</h2>
+          </div>
+
+          <div className="mt-10 space-y-3">
+            {FAQS.map((item) => (
+              <details key={item.q} className="glass group rounded-2xl px-5 py-4 open:border-primary">
+                <summary className="flex list-none items-center justify-between gap-4 text-left text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
         {/* ---------- Final call to action ---------- */}
         <section className="mx-auto max-w-6xl px-6 pb-24">
           <div className="glass glow relative overflow-hidden rounded-3xl px-6 py-14 text-center">
@@ -302,6 +367,7 @@ export default async function HomePage() {
               <li><a href="#features" className="transition hover:text-foreground">Features</a></li>
               <li><a href="#how-it-works" className="transition hover:text-foreground">How it works</a></li>
               <li><a href="#preview" className="transition hover:text-foreground">Preview</a></li>
+              <li><a href="#faq" className="transition hover:text-foreground">FAQ</a></li>
             </ul>
           </div>
 
