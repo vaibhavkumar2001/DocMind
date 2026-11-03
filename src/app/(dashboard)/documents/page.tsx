@@ -1,58 +1,90 @@
+import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { getOrCreateUser } from "@/server/user";
 import { getUserWorkspaces } from "@/server/workspaces";
+import { userButtonAppearance } from "@/lib/clerkAppearance";
 import { createWorkspaceAction } from "./actions";
-import Link from "next/link";
+import CreateWorkspaceForm from '@/components/dashboard/CreateWorkspaceForm'
+import DeleteWorkspaceButton from "@/components/dashboard/DeleteWorkspaceButton";
 
 export default async function DocumentsPage() {
   const user = await getOrCreateUser();
   const workspaces = user ? await getUserWorkspaces(user.id) : [];
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Your workspaces</h1>
-        <UserButton />
+    <main className="mx-auto max-w-4xl px-5 py-6 sm:px-8 sm:py-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">Your workspaces</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Welcome, {user?.name ?? user?.email}.
+          </p>
+        </div>
+        <UserButton appearance={userButtonAppearance} />
       </div>
-      <p className="mt-1 text-slate-500">
-        Welcome, {user?.name ?? user?.email}.
-      </p>
 
-      <form action={createWorkspaceAction} className="mt-6 flex gap-2">
-        <input
-          name="name"
-          required
-          minLength={2}
-          maxLength={50}
-          placeholder="Naya workspace, jaise Engineering team"
-          className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"
-        >
-          Create
-        </button>
-      </form>
+      {/* Create workspace */}
+      <div className="glass mt-8 rounded-2xl p-5">
+        <h2 className="text-sm font-semibold">Create a new workspace</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          A workspace keeps the documents and chats of one team or project together.
+        </p>
+        <div className="mt-4">
+          <CreateWorkspaceForm action={createWorkspaceAction} />
+        </div>
+      </div>
 
-      <ul className="mt-6 space-y-2">
-        {workspaces.length === 0 && (
-          <li className="text-slate-500">There is no workspace yet. Create one from scratch.</li>
-        )}
-        {workspaces.map((w) => (
-          <li
-            key={w.id}
-            className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-800"
-          >
-            <Link href={`/documents/${w.id}`} className="font-medium hover:text-indigo-600 hover:underline">
-                {w.name}
-            </Link>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
-              {w.members[0]?.role}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* Workspace list */}
+      <div className="mt-8 flex items-center gap-3">
+        <h2 className="text-lg font-semibold">All workspaces</h2>
+        <span className="rounded-full border bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+          {workspaces.length}
+        </span>
+      </div>
+
+      {workspaces.length === 0 ? (
+        <div className="mt-4 rounded-2xl border border-dashed p-10 text-center">
+          <p className="font-medium">No workspaces yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create your first workspace above to start uploading documents.
+          </p>
+        </div>
+      ) : (
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+          {workspaces.map((w) => {
+            const role = w.members[0]?.role;
+            return (
+              <li
+                key={w.id}
+                className="glass group flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-primary/60"
+              >
+                <Link href={`/documents/${w.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="bg-gradient-neon flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white">
+                    {w.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{w.name}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground transition group-hover:text-primary">
+                      Open workspace &rarr;
+                    </span>
+                  </span>
+                </Link>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  {role && (
+                    <span className="rounded-full border bg-accent px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide text-accent-foreground">
+                      {role}
+                    </span>
+                  )}
+                  {role === "ADMIN" && (
+                    <DeleteWorkspaceButton workspaceId={w.id} workspaceName={w.name} variant="icon" />
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </main>
   );
 }

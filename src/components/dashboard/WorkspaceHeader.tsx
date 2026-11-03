@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { userButtonAppearance } from "@/lib/clerkAppearance";
+import DeleteWorkspaceButton from "./DeleteWorkspaceButton";
 
 type Props = {
   workspaceId: string;
@@ -28,7 +29,14 @@ export default function WorkspaceHeader({ workspaceId, name, role, active }: Pro
             </span>
           )}
         </div>
-        <UserButton appearance={userButtonAppearance} />
+
+        <div className="flex shrink-0 items-center gap-3">
+          {/* Only admins can delete a workspace (the server checks this again) */}
+          {role === "ADMIN" && (
+            <DeleteWorkspaceButton workspaceId={workspaceId} workspaceName={name} />
+          )}
+          <UserButton appearance={userButtonAppearance} />
+        </div>
       </div>
 
       <nav className="mt-5 flex gap-6 border-b">
