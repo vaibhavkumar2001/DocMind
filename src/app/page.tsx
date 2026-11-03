@@ -2,13 +2,31 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import HeroPreview from "@/components/landing/HeroPreview";
 import AnimatedHeadline from "@/components/landing/AnimatedHeadline";
-import ThemeToggle from "@/components/UI/ThemeToggle"
+import FeatureCard from "@/components/landing/FeatureCard";
+import Reveal from "@/components/landing/Reveal";
+import CursorEffects from "@/components/landing/CursorEffects";
+import Magnetic from "@/components/landing/Magnetic";
+import ThemeToggle from "@/components/UI/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#preview", label: "Preview" },
   { href: "#faq", label: "FAQ" },
+];
+
+const MARQUEE_ITEMS = [
+  "PDF",
+  "DOCX",
+  "TXT",
+  "SRT",
+  "VTT",
+  "Video transcripts",
+  "Page citations",
+  "Timestamp citations",
+  "Streaming answers",
+  "Team workspaces",
+  "Private storage",
 ];
 
 const FEATURES = [
@@ -95,12 +113,24 @@ export default async function HomePage() {
   return (
     // overflow-x-clip (not overflow-hidden) so the sticky navbar still works
     <div className="relative min-h-screen overflow-x-clip">
-      {/* Background layers: aurora glow + faded grid */}
+      {/* Mouse effects: cursor glow, ring, grid highlight, parallax and click ripple (mouse devices only) */}
+      <CursorEffects />
+
+      {/* Background layers: aurora glow + faded grid + drifting orbs */}
       <div className="pointer-events-none absolute inset-0 bg-aurora" aria-hidden="true" />
       <div
         className="pointer-events-none absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_at_top,black,transparent_60%)]"
         aria-hidden="true"
       />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[720px] overflow-hidden" aria-hidden="true">
+        {/* Outer div: parallax (moves with the mouse). Inner div: slow idle drift animation */}
+        <div data-parallax data-depth="40" className="absolute -left-24 top-16 will-change-transform">
+          <div className="animate-drift h-72 w-72 rounded-full bg-primary/25 blur-3xl" />
+        </div>
+        <div data-parallax data-depth="70" className="absolute right-0 top-32 will-change-transform">
+          <div className="animate-drift-slow h-80 w-80 rounded-full bg-secondary/20 blur-3xl" />
+        </div>
+      </div>
 
       {/* ---------- Navbar ---------- */}
       <header className="sticky top-0 z-40 border-b bg-background/60 backdrop-blur-xl">
@@ -206,142 +236,185 @@ export default async function HomePage() {
       </header>
 
       <main className="relative z-10">
-        {/* ---------- Hero ---------- */}
+        {/* ---------- Hero (items enter one after another, after the headline words) ---------- */}
         <section className="mx-auto max-w-6xl px-6 pb-20 pt-16 text-center sm:pt-24">
-          <div className="glass mx-auto inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-secondary" />
-            AI answers with clickable citations
-          </div>
+          <Reveal>
+            <div className="glass mx-auto inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-secondary" />
+              AI answers with clickable citations
+            </div>
+          </Reveal>
 
           <AnimatedHeadline />
 
-          <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
-            Upload PDFs, Word files and video transcripts, then ask questions in plain English.
-            DocMind answers from your files only and shows exactly where it found each answer.
-          </p>
+          <Reveal delay={0.9}>
+            <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
+              Upload PDFs, Word files and video transcripts, then ask questions in plain English.
+              DocMind answers from your files only and shows exactly where it found each answer.
+            </p>
+          </Reveal>
 
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href={isSignedIn ? "/documents" : "/sign-up"}
-              className="bg-gradient-neon glow rounded-full px-7 py-3 text-sm font-semibold text-white transition hover:scale-[1.02]"
-            >
-              {isSignedIn ? "Open dashboard" : "Start for free"}
-            </Link>
-            {!isSignedIn && (
-              <Link
-                href="/sign-in"
-                className="glass rounded-full px-7 py-3 text-sm font-semibold transition hover:border-primary"
-              >
-                Sign in
-              </Link>
-            )}
-          </div>
+          <Reveal delay={1.1}>
+            <div className="mt-8 flex flex-col items-center justify-center gap-0 sm:flex-row sm:gap-0">
+              <Magnetic>
+                <Link
+                  href={isSignedIn ? "/documents" : "/sign-up"}
+                  className="bg-gradient-neon shine glow inline-block rounded-full px-7 py-3 text-sm font-semibold text-white transition hover:scale-[1.03]"
+                >
+                  {isSignedIn ? "Open dashboard" : "Start for free"}
+                </Link>
+              </Magnetic>
+              {!isSignedIn && (
+                <Magnetic>
+                  <Link
+                    href="/sign-in"
+                    className="glass inline-block rounded-full px-7 py-3 text-sm font-semibold transition hover:border-primary"
+                  >
+                    Sign in
+                  </Link>
+                </Magnetic>
+              )}
+            </div>
+          </Reveal>
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            PDF, DOCX, TXT and video transcripts · Private team workspaces
-          </p>
+          <Reveal delay={1.3}>
+            <p className="mt-4 text-xs text-muted-foreground">
+              PDF, DOCX, TXT and video transcripts · Private team workspaces
+            </p>
+          </Reveal>
         </section>
 
-        {/* ---------- Product preview (floating, tilting, draggable) ---------- */}
-        <section id="preview" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24">
-          <HeroPreview />
+        {/* ---------- Product preview (floating, tilting, draggable, live typing demo) ---------- */}
+        <section id="preview" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-16">
+          <Reveal>
+            <HeroPreview />
+          </Reveal>
+        </section>
+
+        {/* ---------- Marquee strip ---------- */}
+        <section className="pb-24" aria-label="Supported sources and capabilities">
+          <div className="[mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
+            <div className="flex w-max animate-marquee gap-3 hover:[animation-play-state:paused]">
+              {/* The list is rendered twice for a seamless loop; the copy is hidden from screen readers */}
+              {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+                <span
+                  key={`${item}-${i}`}
+                  aria-hidden={i >= MARQUEE_ITEMS.length}
+                  className="glass flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-sm font-medium text-muted-foreground"
+                >
+                  <span className="bg-gradient-neon h-1.5 w-1.5 rounded-full" />
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* ---------- Features ---------- */}
         <section id="features" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-secondary">Features</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Everything you need to trust AI answers</h2>
-            <p className="mt-4 text-muted-foreground">
-              Built for people who need answers they can verify, not just answers that sound right.
-            </p>
-          </div>
+          <Reveal>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-widest text-secondary">Features</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Everything you need to trust AI answers</h2>
+              <p className="mt-4 text-muted-foreground">
+                Built for people who need answers they can verify, not just answers that sound right.
+              </p>
+            </div>
+          </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="glass group rounded-2xl p-6 transition hover:-translate-y-1 hover:border-primary"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground transition group-hover:glow">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d={feature.icon} />
-                  </svg>
-                </span>
-                <h3 className="mt-4 text-lg font-semibold">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.text}</p>
-              </div>
+            {FEATURES.map((feature, i) => (
+              <Reveal key={feature.title} delay={(i % 3) * 0.1} className="h-full">
+                <FeatureCard title={feature.title} text={feature.text} icon={feature.icon} />
+              </Reveal>
             ))}
           </div>
         </section>
 
         {/* ---------- How it works ---------- */}
         <section id="how-it-works" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-secondary">How it works</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">From files to answers in three steps</h2>
-          </div>
+          <Reveal>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-widest text-secondary">How it works</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">From files to answers in three steps</h2>
+            </div>
+          </Reveal>
 
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {STEPS.map((step, index) => (
-              <div key={step.title} className="glass rounded-2xl p-6">
-                <span className="text-gradient font-display text-4xl font-bold">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.text}</p>
-              </div>
+              <Reveal key={step.title} delay={index * 0.15} className="h-full">
+                <div className="glass h-full rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:border-primary">
+                  <span className="text-gradient font-display text-4xl font-bold">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="mt-3 text-lg font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.text}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </section>
 
         {/* ---------- FAQ ---------- */}
         <section id="faq" className="scroll-mt-24 mx-auto max-w-3xl px-6 pb-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-secondary">FAQ</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Questions, answered</h2>
-          </div>
+          <Reveal>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-widest text-secondary">FAQ</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Questions, answered</h2>
+            </div>
+          </Reveal>
 
           <div className="mt-10 space-y-3">
-            {FAQS.map((item) => (
-              <details key={item.q} className="glass group rounded-2xl px-5 py-4 open:border-primary">
-                <summary className="flex list-none items-center justify-between gap-4 text-left text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
-                  {item.q}
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </summary>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
-              </details>
+            {FAQS.map((item, i) => (
+              <Reveal key={item.q} delay={i * 0.06}>
+                <details className="glass group rounded-2xl px-5 py-4 open:border-primary">
+                  <summary className="flex list-none items-center justify-between gap-4 text-left text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
+                    {item.q}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </summary>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
+                </details>
+              </Reveal>
             ))}
           </div>
         </section>
 
         {/* ---------- Final call to action ---------- */}
         <section className="mx-auto max-w-6xl px-6 pb-24">
-          <div className="glass glow relative overflow-hidden rounded-3xl px-6 py-14 text-center">
-            <div className="pointer-events-none absolute inset-0 bg-aurora opacity-70" aria-hidden="true" />
-            <h2 className="relative text-3xl font-bold sm:text-4xl">Ready to ask your documents?</h2>
-            <p className="relative mx-auto mt-4 max-w-md text-muted-foreground">
-              Create a workspace, upload a file and get your first cited answer in minutes.
-            </p>
-            <Link
-              href={isSignedIn ? "/documents" : "/sign-up"}
-              className="bg-gradient-neon glow relative mt-8 inline-block rounded-full px-8 py-3 text-sm font-semibold text-white transition hover:scale-[1.02]"
-            >
-              {isSignedIn ? "Open dashboard" : "Get started for free"}
-            </Link>
-          </div>
+          <Reveal>
+            <div className="glass glow relative overflow-hidden rounded-3xl px-6 py-14 text-center">
+              <div className="pointer-events-none absolute inset-0 bg-aurora opacity-70" aria-hidden="true" />
+              <div className="animate-drift pointer-events-none absolute -left-10 -top-10 h-48 w-48 rounded-full bg-primary/30 blur-3xl" aria-hidden="true" />
+              <div className="animate-drift-slow pointer-events-none absolute -bottom-10 -right-10 h-48 w-48 rounded-full bg-secondary/25 blur-3xl" aria-hidden="true" />
+
+              <h2 className="relative text-3xl font-bold sm:text-4xl">Ready to ask your documents?</h2>
+              <p className="relative mx-auto mt-4 max-w-md text-muted-foreground">
+                Create a workspace, upload a file and get your first cited answer in minutes.
+              </p>
+              <div className="relative mt-8">
+                <Magnetic>
+                  <Link
+                    href={isSignedIn ? "/documents" : "/sign-up"}
+                    className="bg-gradient-neon shine glow inline-block rounded-full px-8 py-3 text-sm font-semibold text-white transition hover:scale-[1.03]"
+                  >
+                    {isSignedIn ? "Open dashboard" : "Get started for free"}
+                  </Link>
+                </Magnetic>
+              </div>
+            </div>
+          </Reveal>
         </section>
       </main>
 

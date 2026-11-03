@@ -152,11 +152,94 @@
   animation: word-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Slow drifting glow orbs behind the hero */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(50px, 36px, 0) scale(1.15);
+  }
+}
+
+@utility animate-drift {
+  animation: drift 14s ease-in-out infinite;
+}
+
+@utility animate-drift-slow {
+  animation: drift 22s ease-in-out infinite reverse;
+}
+
+/* Light sweep across a button */
+@keyframes shine {
+  0% {
+    transform: translateX(-130%);
+  }
+  60%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@utility shine {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%);
+    transform: translateX(-130%);
+    animation: shine 3.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+/* Endless horizontal strip (the track holds the items twice, so -50% loops seamlessly) */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+/* Scroll reveal: starts hidden and lower, becomes visible when it enters the screen */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Respect users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
-  .animate-word-in {
+  .animate-word-in,
+  .animate-drift,
+  .animate-drift-slow,
+  .animate-marquee,
+  .shine::after {
     animation: none;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 
   html {
@@ -164,6 +247,7 @@
   }
 }
 
+/* ---------- Base styles ---------- */
 @layer base {
   /* Smooth scrolling when a navbar link jumps to a section */
   html {
@@ -184,7 +268,9 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
@@ -205,8 +291,63 @@
   ::selection {
     background: color-mix(in srgb, var(--primary) 35%, transparent);
   }
+
+  /* Safety net: Clerk text always follows our theme color */
+  .cl-rootBox,
+  .cl-card,
+  .cl-formFieldLabel,
+  .cl-headerTitle,
+  .cl-socialButtonsBlockButtonText {
+    color: var(--foreground);
+  }
 }
 
+/* ---------- Clerk overrides (unlayered, so they win over Clerk's styles) ---------- */
+
+/* Clerk's own heading is hidden, because AuthShell shows the title */
+.cl-header,
+.cl-headerTitle,
+.cl-headerSubtitle {
+  display: none !important;
+}
+
+/* Footer: remove the black background color and the gradient/dotted image */
+.cl-footer,
+.cl-footerAction,
+.cl-footerPages,
+.cl-card .cl-footer {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.cl-footer::before,
+.cl-footer::after,
+.cl-footerPages::before,
+.cl-footerPages::after {
+  background: none !important;
+  background-image: none !important;
+  content: none !important;
+}
+
+/* Footer text colors follow our theme */
+.cl-footerActionText,
+.cl-footerPagesLink,
+.cl-footer {
+  color: var(--muted-foreground) !important;
+}
+
+/* Stop Clerk from clipping badges ("Last used") and input borders */
+.cl-rootBox,
+.cl-cardBox,
+.cl-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+/* Profile button popup: remove the dark footer strip */
 .cl-userButtonPopoverFooter {
   background: transparent !important;
   background-image: none !important;
