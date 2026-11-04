@@ -9,7 +9,7 @@ type Props = {
   className?: string;
 };
 
-export default function Magnetic({ children, strength = 0.35, className = "" }: Props) {
+export default function Magnetic({ children, strength = 0.2, className = "" }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   function onMove(e: React.PointerEvent<HTMLDivElement>) {
