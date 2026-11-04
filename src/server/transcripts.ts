@@ -1,7 +1,6 @@
-import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { parseTranscript, chunkSegments } from "@/server/ingestion/parseTranscript";
-import { embedDocuments, saveEmbeddings } from "@/server/retrieval/embeddings";
+import { enqueueTranscriptIngestion } from "@/lib/queue";
 
 export class TranscriptError extends Error {}
 
@@ -34,11 +33,11 @@ export async function saveTranscriptDocument(args: {
   if (transcript.length < 50) throw new TranscriptError("The transcript is too short");
   if (transcript.length > MAX_CHARS) throw new TranscriptError("The transcript is too long");
 
-  const chunks = chunkSegments(parseTranscript(transcript)).map((c) => ({
-    ...c,
-    id: randomUUID(),
-  }));
-  if (chunks.length === 0) throw new TranscriptError("No readable text found in the transcript");
+  // Quick check so the user gets an instant error if nothing readable is inside.
+  // The worker parses the transcript again for the real work.
+  if (chunkSegments(parseTranscript(transcript)).length === 0) {
+    throw new TranscriptError("No readable text found in the transcript");
+  }
 
   const doc = await prisma.document.create({
     data: {
@@ -53,33 +52,16 @@ export async function saveTranscriptDocument(args: {
   });
 
   try {
-    await prisma.chunk.createMany({
-      data: chunks.map((c) => ({
-        id: c.id,
-        content: c.content,
-        pageNumber: 1, // pages do not exist for videos; startSeconds is what matters
-        startSeconds: c.startSeconds,
-        chunkIndex: c.chunkIndex,
-        documentId: doc.id,
-        workspaceId: args.workspaceId,
-      })),
-    });
-
-    const vectors = await embedDocuments(chunks.map((c) => c.content));
-    await saveEmbeddings(
-      chunks.map((c) => c.id),
-      vectors,
-    );
-
-    await prisma.document.update({ where: { id: doc.id }, data: { status: "READY" } });
-    console.log(`[transcript] ${title}: ${chunks.length} chunks, READY`);
-    return { id: doc.id, filename: doc.filename, status: "READY" as const };
+    await enqueueTranscriptIngestion(doc.id, transcript);
+    return { id: doc.id, filename: doc.filename, status: "PROCESSING" as const };
   } catch (e) {
-    console.error("[transcript] failed", e);
-    await prisma.chunk.deleteMany({ where: { documentId: doc.id } });
+    console.error("[queue] could not enqueue the transcript", e);
     await prisma.document.update({
       where: { id: doc.id },
-      data: { status: "FAILED", errorMessage: "Could not process the transcript" },
+      data: {
+        status: "FAILED",
+        errorMessage: "Could not start processing. Please delete this item and try again.",
+      },
     });
     return { id: doc.id, filename: doc.filename, status: "FAILED" as const };
   }

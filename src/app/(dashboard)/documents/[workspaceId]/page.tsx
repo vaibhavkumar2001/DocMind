@@ -9,6 +9,7 @@ import UploadBox from "@/components/dashboard/UploadBox";
 import TranscriptForm from "@/components/dashboard/TranscriptForm";
 import DeleteButton from "@/components/dashboard/DeleteButton";
 import { deleteDocumentAction } from "./action";
+import AutoRefresh from "@/components/dashboard/AutoRefresh";
 
 const STATUS: Record<string, { label: string; className: string; pulse?: boolean }> = {
   PROCESSING: { label: "Processing", className: "bg-warning/15 text-warning", pulse: true },
@@ -37,8 +38,11 @@ export default async function WorkspacePage({
   const isAdmin = role === "ADMIN";
   const documents = await getWorkspaceDocuments(workspace.id);
 
+  const hasProcessing = documents.some((d) => d.status === "PROCESSING");
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-6 sm:px-8 sm:py-8">
+      <AutoRefresh active={hasProcessing} />
       <WorkspaceHeader
         workspaceId={workspace.id}
         name={workspace.name}

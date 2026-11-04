@@ -1,9 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
-import { extractPages } from "@/server/ingestion/extractText";
-import { chunkPages } from "@/server/ingestion/chunkText";
-import { embedDocuments, saveEmbeddings } from "@/server/retrieval/embeddings";
+import { enqueueFileIngestion } from "@/lib/queue";
 
 export const MAX_MB = 8;
 export const ALLOWED_EXT = [".pdf", ".docx", ".txt"];
@@ -14,15 +12,15 @@ function extOf(name: string) {
   return "." + (name.split(".").pop() ?? "").toLowerCase();
 }
 
-// File ka naam/size check (file padhne se pehle)
+// Check the file name and size (before reading the file)
 export function validateFile(file: File): string | null {
-  if (!ALLOWED_EXT.includes(extOf(file.name))) return "Sirf PDF, DOCX ya TXT allowed hai";
-  if (file.size === 0) return "File khali hai";
-  if (file.size > MAX_MB * 1024 * 1024) return `File ${MAX_MB} MB se badi hai`;
+  if (!ALLOWED_EXT.includes(extOf(file.name))) return "Only PDF, DOCX or TXT files are allowed";
+  if (file.size === 0) return "The file is empty";
+  if (file.size > MAX_MB * 1024 * 1024) return `The file is larger than ${MAX_MB} MB`;
   return null;
 }
 
-// Naam .pdf ho sakta hai par andar kuch aur: pehle bytes se pakdo
+// A name can say .pdf while the content is something else, so check the first bytes
 function matchesType(ext: string, bytes: Buffer) {
   if (ext === ".pdf") return bytes.subarray(0, 5).toString() === "%PDF-";
   if (ext === ".docx") return bytes[0] === 0x50 && bytes[1] === 0x4b; // "PK" (zip)
@@ -33,13 +31,8 @@ function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
 }
 
-async function markFailed(documentId: string, message: string) {
-  await prisma.document.update({
-    where: { id: documentId },
-    data: { status: "FAILED", errorMessage: message },
-  });
-}
-
+// Saves the file and the document row, then hands the heavy work (text extraction,
+// chunking, embeddings) to the background worker. The document starts as PROCESSING.
 export async function saveUploadedDocument(args: {
   workspaceId: string;
   userId: string;
@@ -50,10 +43,10 @@ export async function saveUploadedDocument(args: {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   if (!matchesType(ext, bytes)) {
-    throw new UploadError("File ka content uske type se match nahi karta");
+    throw new UploadError("The file content does not match its type");
   }
 
-  // Path mein workspaceId: har team ki files alag folder mein
+  // The workspaceId is in the path: every team's files live in a separate folder
   const path = `${workspaceId}/${randomUUID()}-${safeName(file.name)}`;
   await uploadToStorage(path, bytes, file.type);
 
@@ -69,47 +62,22 @@ export async function saveUploadedDocument(args: {
       },
     });
   } catch (e) {
-    await deleteFromStorage(path); // register mein entry nahi hui toh godown se bhi hata do
+    await deleteFromStorage(path); // no database row, so remove the stored file too
     throw e;
   }
 
-  // Text -> chunks -> embeddings
+  // Put a job in the queue; the worker does the rest
   try {
-    const pages = await extractPages(bytes, ext);
-    const chars = pages.reduce((n, p) => n + p.text.length, 0);
-    console.log(`[ingestion] ${file.name}: ${pages.length} pages, ${chars} chars`);
-
-    if (chars === 0) {
-      await markFailed(doc.id, "No text was found in this file. It may be a scanned PDF.)");
-      return doc;
-    }
-
-    // Chunk ki id hum khud banate hain, taaki embedding baad mein sahi row mein likh sakein
-    const chunks = chunkPages(pages).map((c) => ({ ...c, id: randomUUID() }));
-    await prisma.chunk.createMany({
-      data: chunks.map((c) => ({
-        id: c.id,
-        content: c.content,
-        pageNumber: c.pageNumber,
-        chunkIndex: c.chunkIndex,
-        documentId: doc.id,
-        workspaceId,
-      })),
-    });
-    console.log(`[ingestion] ${file.name}: ${chunks.length} chunks saved`);
-
-    const vectors = await embedDocuments(chunks.map((c) => c.content));
-    await saveEmbeddings(
-      chunks.map((c) => c.id),
-      vectors,
-    );
-
-    await prisma.document.update({ where: { id: doc.id }, data: { status: "READY" } });
-    console.log(`[ingestion] ${file.name}: ${vectors.length} embeddings saved, READY`);
+    await enqueueFileIngestion(doc.id);
   } catch (e) {
-    console.error("[ingestion] failed", e);
-    await prisma.chunk.deleteMany({ where: { documentId: doc.id } }); // adhoore chunks hata do
-    await markFailed(doc.id, "File process karne mein dikkat aayi");
+    console.error("[queue] could not enqueue the document", e);
+    doc = await prisma.document.update({
+      where: { id: doc.id },
+      data: {
+        status: "FAILED",
+        errorMessage: "Could not start processing. Please delete this file and try again.",
+      },
+    });
   }
 
   return doc;
@@ -122,7 +90,6 @@ export function getWorkspaceDocuments(workspaceId: string) {
   });
 }
 
-// Sirf ADMIN delete kar sakta hai: role ki shart query mein hi hai
 // Only an ADMIN can delete: the role check is part of the query itself
 export async function deleteDocument(userId: string, documentId: string) {
   const doc = await prisma.document.findFirst({

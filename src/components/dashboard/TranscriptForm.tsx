@@ -26,13 +26,16 @@ export default function TranscriptForm({ workspaceId }: { workspaceId: string })
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
 
-      if (data.document?.status === "READY") {
-        setMessage({ ok: true, text: "Transcript added and ready to search." });
+      if (data.document?.status === "FAILED") {
+        setMessage({ ok: false, text: "The transcript was saved but could not be processed." });
+      } else {
+        setMessage({
+          ok: true,
+          text: "Transcript added. It is being processed and will be ready shortly.",
+        });
         setTitle("");
         setUrl("");
         setTranscript("");
-      } else {
-        setMessage({ ok: false, text: "The transcript was saved but could not be processed." });
       }
       router.refresh(); // reload the documents list
     } catch (err) {

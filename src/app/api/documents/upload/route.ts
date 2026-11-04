@@ -14,10 +14,10 @@ export async function POST(req: Request) {
   const file = form.get("file");
 
   if (!workspaceId || !(file instanceof File)) {
-    return NextResponse.json({ error: "workspaceId aur file chahiye" }, { status: 400 });
+    return NextResponse.json({ error: "A workspaceId and a file are required" }, { status: 400 });
   }
 
-  // Sabse zaroori check: kya ye user is workspace ka member hai?
+  // Most important check: is this user a member of this workspace?
   const workspace = await getWorkspaceForUser(user.id, workspaceId);
   if (!workspace) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 
   try {
+    // Returns quickly: the file is stored and queued, the worker processes it in the background
     const doc = await saveUploadedDocument({ workspaceId, userId: user.id, file });
     return NextResponse.json(
       { document: { id: doc.id, filename: doc.filename, status: doc.status } },

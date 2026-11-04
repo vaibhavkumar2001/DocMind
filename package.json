@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "worker": "tsx worker/index.ts",
+    "worker:dev": "tsx watch worker/index.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.7",
@@ -14,6 +16,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@supabase/supabase-js": "^2.117.2",
+    "bullmq": "^6.6.0",
     "dotenv": "^18.0.5",
     "mammoth": "^1.13.0",
     "next": "16.3.6",
